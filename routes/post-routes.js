@@ -14,4 +14,6 @@ router.post("/post/reply", postController.postReply);
 router.patch("/post/reply/:replyId", postController.updateReply);
 router.post("/:postId/like", postController.toggleLike);
 router.delete("/post/:replyId", postController.deleteReply);
+
+router.get("/getUserStats/:userId", postController.getUserStats);
 module.exports = router;

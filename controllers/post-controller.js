@@ -93,11 +93,11 @@ exports.updatePost = async (req, res) => {
   }
 
   // STEP-4: CHECK IF THE USER OWNS THE POST
-  // if (post.user.toString() !== user) {
-  //   return res.status(403).json({
-  //     message: "You are not authorized to edit this post.",
-  //   });
-  // }
+  if (post.user.toString() !== user) {
+    return res.status(403).json({
+      message: "You are not authorized to edit this post.",
+    });
+  }
 
   // STEP-5: UPDATE THE POST
   try {
@@ -174,7 +174,6 @@ exports.getPost = async (req, res) => {
     const post = await Post.findById(postId)
       .populate("user")
       .populate("replies");
-    console.log(post);
     return res.json({
       post,
     });
@@ -194,7 +193,6 @@ exports.getRepliesByPostId = async (req, res) => {
         select: "name",
       },
     });
-    console.log(replies);
     res.json({
       postReplies: replies,
     });
@@ -204,7 +202,6 @@ exports.getRepliesByPostId = async (req, res) => {
 };
 exports.postReply = async (req, res) => {
   const { content, user, post } = req.body;
-  console.log(user, post);
 
   // STEP-1) CHECKING IF WE HAVE VALID DATA
   if (!content || !user || !post) {
@@ -271,7 +268,6 @@ exports.postReply = async (req, res) => {
 exports.updateReply = async (req, res) => {
   const { replyId } = req.params;
   const { content, user } = req.body;
-  console.log(replyId, user);
 
   // STEP-1: CHECK WHETHER OR NOT POST EXISTS
   if (!replyId) {
@@ -328,7 +324,6 @@ exports.updateReply = async (req, res) => {
 };
 exports.deleteReply = async (req, res) => {
   const { replyId } = req.params;
-  console.log(replyId);
 
   // STEP-1) VALIDATE INPUT
   if (!replyId) {
@@ -394,7 +389,6 @@ exports.toggleLike = async (req, res) => {
       message: "User does not exist.",
     });
   }
-  console.log(user);
   // STEP-1) FIND THE POST
   let post;
   try {
@@ -415,7 +409,6 @@ exports.toggleLike = async (req, res) => {
   try {
     if (post.likes.includes(userId)) {
       // User already liked the post, so unlike it
-      console.log(post);
       post.likes = post.likes.filter((id) => id.toString() !== userId);
       await post.save();
       return res.status(200).json({
@@ -435,6 +428,36 @@ exports.toggleLike = async (req, res) => {
     return res.status(500).json({
       message: "Error toggling like status.",
       error: err,
+    });
+  }
+};
+
+exports.getUserStats = async (req, res) => {
+  const { userId } = req.params;
+
+  let user;
+  try {
+    user = await User.findById(userId).populate("posts");
+    let totalLikes = 0;
+    let totalReplies = 0;
+
+    user.posts.forEach((post) => {
+      console.log(post.likes.length);
+      totalReplies += post.replies.length;
+      totalLikes += post.likes.length;
+    });
+
+    console.log(totalLikes);
+
+    res.json({
+      user,
+      totalLikesUserHas: totalLikes,
+      totalRepliesUserHas: totalReplies,
+      totalPostsUserHas: user.posts.length,
+    });
+  } catch (err) {
+    res.json({
+      err,
     });
   }
 };

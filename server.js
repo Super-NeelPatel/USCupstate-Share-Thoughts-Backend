@@ -17,7 +17,7 @@ app.use("/api/posts", postRoutes);
 
 mongoose
   .connect(
-    "mongodb+srv://db:pw@cluster0.mqujt.mongodb.net/upstate-share-thoughts?retryWrites=true&w=majority&appName=Cluster0",
+    "mongodb+srv://@cluster0.mqujt.mongodb.net/upstate-share-thoughts?retryWrites=true&w=majority&appName=Cluster0",
     {
       // Add these options if necessary
       // useNewUrlParser: true,
