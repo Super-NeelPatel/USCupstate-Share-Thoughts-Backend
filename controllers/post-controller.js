@@ -442,12 +442,9 @@ exports.getUserStats = async (req, res) => {
     let totalReplies = 0;
 
     user.posts.forEach((post) => {
-      console.log(post.likes.length);
       totalReplies += post.replies.length;
       totalLikes += post.likes.length;
     });
-
-    console.log(totalLikes);
 
     res.json({
       user,

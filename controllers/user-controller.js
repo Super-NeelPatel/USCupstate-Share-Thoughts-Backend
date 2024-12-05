@@ -1,10 +1,10 @@
 const express = require("express");
 const UserModal = require("../models/userModel");
 const { body, validationResult } = require("express-validator");
-
-exports.getStartingPage = (req, res) => {
-  res.send("<h1>Home page after login</h1>");
-};
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
+const JWT_TOKEN = process.env.JWT_TOKEN;
 
 exports.signup = async (req, res) => {
   const { name, email, password } = req.body;
@@ -25,62 +25,129 @@ exports.signup = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  // STEP-2) IF USER ALREADY EXISTS, THEN RETURN WITH JSON RESPONSE THAT "USER ALRADY EXISTS."
-
-  let userExist = await UserModal.findOne({ email });
-  if (userExist) {
-    return res.json({ message: "User Already exist. Please Log in." });
-  }
-
-  // STEP-3) BY THE TIME, WE KNOW THAT OUR DATA IS VALID AND IT IS NEW EMAIL;THERFORE, THEN CREATE NEW USER
-  let newUser;
+  // Step 2: Check if User Already Exists
   try {
-    newUser = new UserModal({ name, email, password });
-    await newUser.save();
-    return res.json({
-      message: "🥳User has been created!",
-    });
+    const userExist = await UserModal.findOne({ email });
+    if (userExist) {
+      return res
+        .status(409)
+        .json({ message: "User already exists. Please log in." });
+    }
   } catch (err) {
-    res.json({
-      message: err,
-    });
+    return res.status(500).json({ error: "Database query failed." });
   }
+
+  // Step 3: Create New User
+  let hashedPassword;
+  try {
+    hashedPassword = await bcrypt.hash(password, 12);
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ error: "Could not hash the password. Please try again." });
+  }
+
+  const newUser = new UserModal({ name, email, password: hashedPassword });
+  try {
+    await newUser.save();
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ error: "Saving user failed. Please try again." });
+  }
+
+  // Step 4: Generate JWT Token
+  let token;
+  try {
+    token = jwt.sign(
+      {
+        userId: newUser.id,
+        email: newUser.email,
+      },
+      JWT_TOKEN, // Use env variable for security
+      { expiresIn: "1h" }
+    );
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ error: "Token generation failed. Please try again." });
+  }
+
+  // Step 5: Respond with Success
+  return res.status(201).json({
+    message: "🥳 User has been created!",
+    data: {
+      userId: newUser.id,
+      email: newUser.email,
+      token,
+    },
+  });
 };
 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
-  // STEP-1)) CHECK IF USER IS EXIST IN DATABASE
-
+  // Step 1: Validate Input
   if (!email || !password) {
-    return res.json({
-      message: "Invalid email or password. Or email or password is empty.",
+    return res.status(400).json({
+      message: "Email and password are required.",
     });
   }
-  // STEP-2)) IF EXIST THEN REDIRECT TO HOME PAGE
+
+  // Step 2: Check if User Exists
   let user;
   try {
     user = await UserModal.findOne({ email });
-
-    //USER THEN CHECK IF PASSWORD MATCHS
-    console.log(user);
-
     if (!user) {
-      return res.json({
-        message: "User does not exist. Please Sign up.",
-      });
-    }
-    if (user.email === email && user.password === password) {
-      return res.redirect("/api/users/");
-    } else {
-      return res.json({
-        message: "Wrong email or password.",
+      return res.status(404).json({
+        message: "User does not exist. Please sign up.",
       });
     }
   } catch (err) {
-    //RUNS CATCH BLOCK WHEN USER IS NOT FOUND
-    res.json({
-      message: "Something went wrong, try again later.",
+    return res.status(500).json({
+      message: "Database query failed. Please try again later.",
     });
   }
+
+  // Step 3: Validate Password
+  let isValidPassword;
+  try {
+    isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        message: "Invalid credentials. Please try again.",
+      });
+    }
+  } catch (err) {
+    return res.status(500).json({
+      message: "Password validation failed. Please try again.",
+    });
+  }
+
+  // Step 4: Generate JWT Token
+  let token;
+  try {
+    token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_TOKEN, // Use an environment variable for security
+      { expiresIn: "1h" }
+    );
+  } catch (err) {
+    return res.status(500).json({
+      message: "Token generation failed. Please try again.",
+    });
+  }
+
+  // Step 5: Respond with Success
+  return res.status(200).json({
+    userId: user.id,
+    email: user.email,
+    token,
+  });
+};
+
+exports.logout = (req, res) => {
+  res.json({
+    message: "Logout successfully.",
+  });
 };

@@ -1,11 +1,12 @@
 const express = require("express");
 const Post = require("../models/postModel");
 const postController = require("../controllers/post-controller");
-
+const checkAuth = require("../middleware/check-auth");
 const router = express.Router();
 
-router.post("/create", postController.createNewPost);
+router.use(checkAuth);
 router.get("/", postController.getAllPosts);
+router.post("/create", checkAuth, postController.createNewPost);
 router.patch("/post/:postId", postController.updatePost);
 router.delete("/:postId", postController.deletePost);
 router.get("/:postId", postController.getPost);
